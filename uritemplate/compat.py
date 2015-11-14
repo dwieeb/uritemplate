@@ -1,3 +1,15 @@
+"""
+
+uritemplate.compat
+==================
+
+This module contains compatibility for Python 2.
+
+The code pertaining to urllib has been backported from Python 3.5 with minor
+changes.
+
+"""
+
 import collections
 
 
@@ -5,7 +17,7 @@ _ALWAYS_SAFE = frozenset(b'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
                          b'abcdefghijklmnopqrstuvwxyz'
                          b'0123456789'
                          b'_.-')
-_ALWAYS_SAFE_BYTES = bytes(_ALWAYS_SAFE)
+_ALWAYS_SAFE_BYTES = bytearray(_ALWAYS_SAFE)
 _safe_quoters = {}
 
 
@@ -17,8 +29,8 @@ class Quoter(collections.defaultdict):
     # Keeps a cache internally, using defaultdict, for efficiency (lookups
     # of cached keys don't call Python code at all).
     def __init__(self, safe):
-        """safe: bytes object."""
-        self.safe = _ALWAYS_SAFE.union(safe)
+        """safe: bytearray object."""
+        self.safe = _ALWAYS_SAFE + safe
 
     def __repr__(self):
         # Without this, will just display as a defaultdict
@@ -26,7 +38,7 @@ class Quoter(collections.defaultdict):
 
     def __missing__(self, b):
         # Handle a cache miss. Store quoted string in cache and return.
-        res = chr(b) if b in self.safe else '%{:02X}'.format(b)
+        res = chr(b) if chr(b) in self.safe else "%{0:02X}".format(b)
         self[b] = res
         return res
 
@@ -51,44 +63,47 @@ def quote(string, safe='/', encoding=None, errors=None):
     called on a path where the existing slash characters are used as
     reserved characters.
 
-    string and safe may be either str or bytes objects. encoding and errors
-    must not be specified if string is a bytes object.
+    string and safe may be either str or bytearray objects. encoding and errors
+    must not be specified if string is a bytearray object.
+
     The optional encoding and errors parameters specify how to deal with
     non-ASCII characters, as accepted by the str.encode method.
 
     By default, encoding='utf-8' (characters are encoded with UTF-8), and
     errors='strict' (unsupported characters raise a UnicodeEncodeError).
     """
-    if isinstance(string, str):
+    if isinstance(string, (unicode, str)):
         if not string:
             return string
         if encoding is None:
             encoding = 'utf-8'
         if errors is None:
             errors = 'strict'
-        string = string.encode(encoding, errors)
+        s = string.encode(encoding, errors)
+        string = bytearray()
+        string.extend(s)
     else:
         if encoding is not None:
-            raise TypeError("quote() doesn't support 'encoding' for bytes")
+            raise TypeError("quote() doesn't support 'encoding' for bytearray")
         if errors is not None:
-            raise TypeError("quote() doesn't support 'errors' for bytes")
+            raise TypeError("quote() doesn't support 'errors' for bytearray")
     return quote_from_bytes(string, safe)
 
 
 def quote_from_bytes(bs, safe='/'):
-    """Like quote(), but accepts a bytes object rather than a str, and does
+    """Like quote(), but accepts a bytearray object rather than a str, and does
     not perform string-to-bytes encoding.  It always returns an ASCII string.
     quote_from_bytes(b'abc def\x3f') -> 'abc%20def%3f'
     """
-    if not isinstance(bs, (bytes, bytearray)):
-        raise TypeError("quote_from_bytes() expected bytes")
+    if not isinstance(bs, bytearray):
+        raise TypeError("quote_from_bytes() expected bytearray")
     if not bs:
         return ''
     if isinstance(safe, str):
         # Normalize 'safe' by converting to bytes and removing non-ASCII chars
         safe = safe.encode('ascii', 'ignore')
     else:
-        safe = bytes([c for c in safe if c < 128])
+        safe = bytearray([c for c in safe if c < 128])
     if not bs.rstrip(_ALWAYS_SAFE_BYTES + safe):
         return bs.decode()
     try:

@@ -16,10 +16,10 @@ What do you do?
 """
 
 try:
-    from urllib import quote
-except ImportError:
-    # python 3
     from urllib.parse import quote
+except ImportError:
+    # python 2
+    from uritemplate.compat import quote
 import collections
 
 
